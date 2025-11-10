@@ -1,0 +1,41 @@
+version: '3.8'
+networks:
+  default:
+    external:
+      name: hadoop-net
+
+services:
+  datanode:
+    image: apache/hadoop:3.3.6
+    container_name: datanode-b
+    command: ["hdfs", "datanode"]
+    env_file:
+      - ./config
+    environment:
+      - HDFS_NAMENODE_HOST=172.31.57.165
+      - SPARK_MASTER_URL=spark://spark-master:7077
+ 
+    mem_limit: 1536m
+    volumes:
+      - datanode-data:/opt/hadoop/dfs/data
+    restart: unless-stopped
+
+  spark-worker:
+    # ✅ FIX: Switched from bitnami/spark to the official apache/spark image.
+    image: apache/spark:3.5.0
+    container_name: spark-worker-b
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://172.31.57.165:7077
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=2
+    mem_limit: 1024m
+    volumes:
+      - spark-data:/opt/spark/work
+    restart: unless-stopped
+    depends_on:
+      - datanode
+
+volumes:
+  datanode-data:
+  spark-data:
