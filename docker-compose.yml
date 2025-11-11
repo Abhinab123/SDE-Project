@@ -1,41 +1,167 @@
 version: '3.8'
-networks:
-  default:
-    external:
-      name: hadoop-net
 
 services:
-  datanode:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: wurstmeister/kafka
+    container_name: kafka
+    ports: 
+      - "9092:9092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    container_name: kafdrop
+    ports:
+      - "9999:9000"
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:29092"
+    depends_on:
+      - kafka
+  namenode:
     image: apache/hadoop:3.3.6
-    container_name: datanode-b
-    command: ["hdfs", "datanode"]
+    hostname: namenode
+    command: ["hdfs", "namenode"]
+    ports:
+      - 9870:9870
+      - 9000:9000
     env_file:
       - ./config
     environment:
-      - HDFS_NAMENODE_HOST=172.31.57.165
-      - SPARK_MASTER_URL=spark://spark-master:7077
- 
+      ENSURE_NAMENODE_DIR: "/tmp/hadoop-root/dfs/name"
     mem_limit: 1536m
     volumes:
-      - datanode-data:/opt/hadoop/dfs/data
-    restart: unless-stopped
+      - namenode-data:/opt/hadoop/dfs/name
 
-  spark-worker:
-    # ✅ FIX: Switched from bitnami/spark to the official apache/spark image.
-    image: apache/spark:3.5.0
-    container_name: spark-worker-b
+  datanode1:
+    image: apache/hadoop:3.3.6
+    command: ["hdfs", "datanode"]
+    env_file:
+      - ./config
+    mem_limit: 1536m
+    volumes:
+      - datanode1-data:/opt/hadoop/dfs/data
+    depends_on:
+      - namenode
+
+  datanode2:
+    image: apache/hadoop:3.3.6
+    command: ["hdfs", "datanode"]
+    env_file:
+      - ./config
+    mem_limit: 1536m
+    volumes:
+      - datanode2-data:/opt/hadoop/dfs/data
+    depends_on:
+      - namenode
+
+  datanode3:
+    image: apache/hadoop:3.3.6
+    command: ["hdfs", "datanode"]
+    env_file:
+      - ./config
+    mem_limit: 1536m
+    volumes:
+      - datanode3-data:/opt/hadoop/dfs/data
+    depends_on:
+      - namenode
+
+  resourcemanager:
+    image: apache/hadoop:3.3.6
+    hostname: resourcemanager
+    command: ["yarn", "resourcemanager"]
+    ports:
+      - 8090:8088
+    env_file:
+      - ./config
+    mem_limit: 1536m
+    depends_on:
+      - namenode
+      - datanode1
+      - datanode2
+      - datanode3
+
+  nodemanager:
+    image: apache/hadoop:3.3.6
+    command: ["yarn", "nodemanager"]
+    env_file:
+      - ./config
+    mem_limit: 1536m
+    depends_on:
+      - namenode
+      - datanode1
+      - datanode2
+      - datanode3
+      - resourcemanager
+
+  spark-master:
+    image: bitnami/spark:3.5
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_PORT=7077
+      - SPARK_MASTER_WEBUI_PORT=8080
+      - SPARK_HOME=/opt/bitnami/spark
+      - HOME=/tmp 
+    ports:
+      - '8080:8080'
+      - '7077:7077'
+    mem_limit: 512m
+    volumes:
+      - ./spark-data:/bitnami/spark/data
+      - ./ivy2:/opt/bitnami/spark/.ivy2
+    depends_on:
+      - namenode
+
+  spark-worker1:
+    image: bitnami/spark:3.5
     environment:
       - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://172.31.57.165:7077
+      - SPARK_MASTER_URL=spark://spark-master:7077
       - SPARK_WORKER_MEMORY=1G
       - SPARK_WORKER_CORES=2
     mem_limit: 1024m
-    volumes:
-      - spark-data:/opt/spark/work
-    restart: unless-stopped
     depends_on:
-      - datanode
+      - spark-master
+    volumes:
+      - ./spark-data:/bitnami/spark/data
+
+  spark-worker2:
+    image: bitnami/spark:3.5
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=2
+    mem_limit: 1024m
+    depends_on:
+      - spark-master
+    volumes:
+      - ./spark-data:/bitnami/spark/data
+
+  query-service:
+    image: apache/superset:latest
+    environment:
+      - SUPERSET_SECRET_KEY=opensslrandbase64secretkey1234567890
+    ports:
+      - '8089:8088'
+    mem_limit: 512m
+    depends_on:
+      - spark-master
 
 volumes:
-  datanode-data:
-  spark-data:
+  namenode-data:
+  datanode1-data:
+  datanode2-data:
+  datanode3-data:
