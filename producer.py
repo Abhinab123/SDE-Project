@@ -27,12 +27,12 @@ np.random.seed(42)
 n = 50000  # Number of records to simulate
 
 # Generate columns
-num_clicks = np.random.randint(0, 500, n)
+num_clicks = np.random.randint(0, 1000, n)
 rating = np.random.choice(
-    [np.round(np.random.uniform(1, 5), 1), np.nan], n, p=[0.8, 0.2]
+    [np.round(np.random.uniform(1, 5), 1)], n, p=[0.8, 0.2]
 )
-discount_percentage = np.random.randint(0, 70, n)
-purchases_last_30_days = np.random.randint(0, 200, n)
+discount_percentage = np.random.randint(0, 90, n)
+purchases_last_30_days = np.random.randint(0, 300, n)
 category = np.random.choice(
     ['Electronics', 'Clothing', 'Home', 'Beauty', 'Books'], n
 )
