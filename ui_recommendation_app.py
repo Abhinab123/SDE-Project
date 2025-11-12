@@ -51,7 +51,7 @@ if st.button("Predict for Single Input"):
     st.success(f"Predicted Purchase Likelihood: {pred:.2f}%")
 
 # ============================================================
-# MULTIPLE RECORDS (FILE UPLOAD) PREDICTION + TOP 5 PRODUCTS
+# MULTIPLE RECORDS (FILE UPLOAD) PREDICTION 
 # ============================================================
 st.markdown("---")
 st.header("Batch Prediction from File")
@@ -81,14 +81,14 @@ if uploaded_pred_file:
         # Option to download full prediction results
         csv_output = df_new.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="📥 Download All Predictions as CSV",
+            label="Download All Predictions as CSV",
             data=csv_output,
             file_name="predicted_output.csv",
             mime="text/csv"
         )
 
 # ============================================================
-# OPTIONAL RETRAIN SECTION
+# RETRAIN SECTION         
 # ============================================================
 st.markdown("---")
 st.header("Retrain Model with New Labeled Data")
