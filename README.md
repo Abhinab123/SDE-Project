@@ -1,87 +1,84 @@
-# SDE-Project
-This the Github Repo For The SDE final Project on E-Commerce Recommendation System using Big Data Analytics
+# Ecommerce Recommendation Using Big-Data Analytics
 
-# Steps to Install Docker and Docker Compose
-
-## **1. Update System Packages**
-```bash
-sudo apt-get update
-```
-
-## **2. Uninstall Old Versions (if any)**
-```bash
-sudo apt-get remove docker docker-engine docker.io containerd runc
-```
-
-## **3. Install Required Dependencies**
-```bash
-sudo apt-get install ca-certificates curl gnupg lsb-release
-```
-
-## **4. Add Docker’s Official GPG Key**
-```bash
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-```
-
-## **5. Add Docker Repository**
-```bash
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-```
-
-## **6. Install Docker Engine**
-```bash
-sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-```
-
-## **7. Verify Docker Installation**
-```bash
-docker --version
-```
-
-## **8. Run Docker Without Sudo (Optional)**
-```bash
-sudo usermod -aG docker $USER
-```
-> Log out and log back in for the changes to take effect.
+An end-to-end real-time data pipeline using **Kafka → Spark Streaming → HDFS → Spark ML→UI**.
 
 ---
 
-#  Install Docker Compose
-
-> **Note:** Newer versions of Docker already include Docker Compose as a plugin.  
-> If it’s not available, follow the steps below.
-
-## **1. Download Latest Docker Compose Binary**
-```bash
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+## 1. Prerequisites
+- Docker & Docker Compose  
+- Python 3  
+- Project structure:
 ```
-
-## **2. Apply Executable Permissions**
-```bash
-sudo chmod +x /usr/local/bin/docker-compose
-```
-
-## **3. Verify Docker Compose Installation**
-```bash
-docker compose version
-```
-> If the above command doesn’t work, try:
-```bash
-docker-compose --version
+.
+│── docker-compose.yml
+│── streaming/
+│     ├── producer.py
+│     └── spark_stream_to_hdfs.py
+│── model/
+      └── train_model.py
 ```
 
 ---
 
-# Test the Installation
-
-Run the following command to confirm everything is working correctly:
-```bash
-docker run hello-world
+## 2. Start the Cluster
+```
+docker compose up -d
 ```
 
-If message **“Hello from Docker!”**, is displayed. Docker and Docker Compose have been successfully installed.
+---
+
+## 3. Create Kafka Topic
+```
+docker exec -it ecommerce-recommendation-kafka-1 kafka-topics.sh --create --topic ecommerce_data --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1
+```
+
+---
+
+## 4. Run the Data Producer
+```
+python3 streaming/producer.py
+```
+
+---
+
+## 5. Run Spark Streaming Job
+```
+docker cp streaming/spark_stream_to_hdfs.py ecommerce-recommendation-spark-master-1:/opt/bitnami/spark/
+docker exec -it ecommerce-recommendation-spark-master-1 spark-submit /opt/bitnami/spark/spark_stream_to_hdfs.py
+```
+
+---
+
+## 6. Check HDFS Output
+```
+docker exec -it ecommerce-recommendation-namenode-1 hdfs dfs -ls /stream_output/combined
+```
+
+---
+
+## 7. Train ML Model
+```
+docker exec -it ecommerce-recommendation-spark-master-1 spark-submit /opt/bitnami/spark/model/train_model.py
+```
+
+---
+
+## 8. Run UI
+```
+streamlit run streaming/ui_recommendation.py
+```
+
+---
+
+## 9. Stop Services
+```
+docker compose down
+```
+
+---
+
+## UI Access
+- Spark UI at http://localhost:8080  
+- HDFS NameNode at http://localhost:9870  
+- User Interface at http://localhost:8501
+- Kafka Drop at http://localhost:9999
